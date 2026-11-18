@@ -37,6 +37,17 @@ void main() {
       expect(d.rpm, 0);
     });
 
+    test('dừng động cơ chủ động: lúc rpm giảm dần không sinh cảnh báo', () {
+      final sim = MockSimulator(random: Random(3));
+      for (var i = 0; i < 30; i++) {
+        sim.next(DateTime(2026));
+      }
+      sim.motorEnabled = false;
+      for (var i = 0; i < 15; i++) {
+        expect(sim.next(DateTime(2026)).warningLevel, WarningLevel.ok);
+      }
+    });
+
     test('quá nhiệt thì mức danger, bật còi và báo lỗi; tắt còi được', () {
       final sim = MockSimulator(random: Random(4));
       TelemetryData? danger;

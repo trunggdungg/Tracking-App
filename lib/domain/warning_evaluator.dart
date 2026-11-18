@@ -29,8 +29,14 @@ enum TempStatus {
 class WarningEvaluator {
   const WarningEvaluator._();
 
-  static SpeedStatus speed(double rpm, Thresholds t) {
-    if (rpm <= 0) return SpeedStatus.stopped;
+  /// [motorRunning] = false: động cơ đã bị tắt có chủ ý -> luôn là "đã dừng",
+  /// kể cả lúc rpm còn đang giảm dần (tránh cảnh báo "tốc độ thấp" giả).
+  static SpeedStatus speed(
+    double rpm,
+    Thresholds t, {
+    bool motorRunning = true,
+  }) {
+    if (!motorRunning || rpm <= 0) return SpeedStatus.stopped;
     if (rpm < t.rpmLow) return SpeedStatus.low;
     if (rpm > t.rpmHigh) return SpeedStatus.high;
     return SpeedStatus.stable;
@@ -44,9 +50,13 @@ class WarningEvaluator {
 
   /// Mức cảnh báo tính từ giá trị đo: quá nhiệt hoặc rung mạnh = đỏ;
   /// nhiệt độ cao hoặc tốc độ lệch ngưỡng = vàng.
-  static WarningLevel level(TelemetryData d, Thresholds t) {
+  static WarningLevel level(
+    TelemetryData d,
+    Thresholds t, {
+    bool motorRunning = true,
+  }) {
     var result = WarningLevel.ok;
-    result = result.worst(speed(d.rpm, t).level);
+    result = result.worst(speed(d.rpm, t, motorRunning: motorRunning).level);
     result = result.worst(temperature(d.temperature, t).level);
     final v = d.vibration;
     if (v != null && v >= t.vibrationDanger) result = WarningLevel.danger;
@@ -54,6 +64,11 @@ class WarningEvaluator {
   }
 
   /// Gộp mức do thiết bị báo (đèn cảnh báo) với mức tự tính: lấy mức nặng hơn.
-  static TelemetryData apply(TelemetryData d, Thresholds t) =>
-      d.copyWith(warningLevel: d.warningLevel.worst(level(d, t)));
+  static TelemetryData apply(
+    TelemetryData d,
+    Thresholds t, {
+    bool motorRunning = true,
+  }) => d.copyWith(
+    warningLevel: d.warningLevel.worst(level(d, t, motorRunning: motorRunning)),
+  );
 }
