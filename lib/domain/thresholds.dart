@@ -45,4 +45,26 @@ class Thresholds {
     tempMax: tempMax ?? this.tempMax,
     vibrationDanger: vibrationDanger ?? this.vibrationDanger,
   );
+
+  @override
+  bool operator ==(Object other) =>
+      other is Thresholds &&
+      other.rpmLow == rpmLow &&
+      other.rpmHigh == rpmHigh &&
+      other.rpmMax == rpmMax &&
+      other.tempWarn == tempWarn &&
+      other.tempDanger == tempDanger &&
+      other.tempMax == tempMax &&
+      other.vibrationDanger == vibrationDanger;
+
+  @override
+  int get hashCode => Object.hash(
+    rpmLow,
+    rpmHigh,
+    rpmMax,
+    tempWarn,
+    tempDanger,
+    tempMax,
+    vibrationDanger,
+  );
 }

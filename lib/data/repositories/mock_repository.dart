@@ -1,8 +1,13 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
+import '../../core/utils/downsample.dart';
 import '../../domain/device_command.dart';
+import '../../domain/device_issue.dart';
 import '../../domain/device_repository.dart';
+import '../../domain/history_store.dart';
 import '../../domain/telemetry_data.dart';
 import '../../domain/thresholds.dart';
 import '../../domain/warning_evaluator.dart';
@@ -82,6 +87,7 @@ class MockSimulator {
       fault: level == WarningLevel.danger ? 'Quá nhiệt' : null,
       warningLevel: level,
       buzzerOn: level == WarningLevel.danger && !buzzerMuted,
+      motorOn: motorEnabled,
     );
     return data;
   }
@@ -94,6 +100,7 @@ class MockRepository implements DeviceRepository {
     this.commandDelay = const Duration(milliseconds: 400),
     this.failureRate = 0.1,
     this.simulateDropouts = true,
+    this.store,
     Random? random,
     Thresholds thresholds = const Thresholds(),
   }) : _random = random ?? Random(),
@@ -108,8 +115,16 @@ class MockRepository implements DeviceRepository {
   /// Thỉnh thoảng giả lập mất kết nối vài giây.
   final bool simulateDropouts;
 
+  /// Nếu có, `history()` đọc từ store (SQLite) - việc ghi do HistoryRecorder lo.
+  /// Nếu null, Mock tự giữ lịch sử trong bộ nhớ (dùng cho test).
+  final HistoryStore? store;
+
   final Random _random;
   final MockSimulator _sim;
+
+  /// Bộ mô phỏng bên trong - chỉ để test can thiệp trạng thái thiết bị.
+  @visibleForTesting
+  MockSimulator get sim => _sim;
   final _telemetry = StreamController<TelemetryData>.broadcast();
   final _connection = StreamController<bool>.broadcast();
   final _history = <TelemetryData>[];
@@ -122,6 +137,7 @@ class MockRepository implements DeviceRepository {
   static const _maxHistory = 20000;
 
   void _start() {
+    _started = true;
     _timer ??= Timer.periodic(interval, (_) => _tick());
     _tick();
   }
@@ -140,9 +156,11 @@ class MockRepository implements DeviceRepository {
     }
     if (!_connected) return; // mất kết nối: không có mẫu mới
     final data = _sim.next(DateTime.now());
-    _history.add(data);
-    if (_history.length > _maxHistory) {
-      _history.removeRange(0, _history.length - _maxHistory);
+    if (store == null) {
+      _history.add(data);
+      if (_history.length > _maxHistory) {
+        _history.removeRange(0, _history.length - _maxHistory);
+      }
     }
     _telemetry.add(data);
   }
@@ -166,6 +184,22 @@ class MockRepository implements DeviceRepository {
   }
 
   @override
+  Stream<DeviceIssue> issueStream() => Stream.value(DeviceIssue.none);
+
+  bool _started = false;
+
+  @override
+  void pause() {
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  @override
+  void resume() {
+    if (_started && _timer == null && !_telemetry.isClosed) _start();
+  }
+
+  @override
   Future<bool> sendCommand(DeviceCommand cmd) async {
     await Future<void>.delayed(commandDelay);
     if (!_connected) return false;
@@ -182,10 +216,19 @@ class MockRepository implements DeviceRepository {
   }
 
   @override
-  Future<List<TelemetryData>> history(DateTime from, DateTime to) async => [
-    for (final d in _history)
-      if (!d.timestamp.isBefore(from) && !d.timestamp.isAfter(to)) d,
-  ];
+  Future<List<TelemetryData>> history(
+    DateTime from,
+    DateTime to, {
+    int? maxPoints,
+  }) async {
+    final s = store;
+    if (s != null) return s.telemetryBetween(from, to, maxPoints: maxPoints);
+    final rows = [
+      for (final d in _history)
+        if (!d.timestamp.isBefore(from) && !d.timestamp.isAfter(to)) d,
+    ];
+    return maxPoints == null ? rows : downsample(rows, maxPoints);
+  }
 
   @override
   Future<void> dispose() async {

@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/theme.dart';
+import '../domain/device_issue.dart';
 import '../features/history/history_screen.dart';
 import '../features/live/live_screen.dart';
 import '../features/settings/settings_screen.dart';
+import '../features/history/history_providers.dart';
+import '../features/settings/blynk_messages.dart';
+import 'history_recorder.dart';
 import 'providers.dart';
 
 /// Khung ứng dụng: thanh trên (tiêu đề + trạng thái kết nối),
@@ -16,14 +20,46 @@ class AppShell extends ConsumerStatefulWidget {
   ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends ConsumerState<AppShell> {
-  int _index = 0;
+class _AppShellState extends ConsumerState<AppShell>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Bật bộ ghi lịch sử chạy ngầm suốt vòng đời app.
+    ref.read(historyRecorderProvider);
+    // Giữ công tắc động cơ khớp với trạng thái thiết bị báo.
+    ref.read(motorSyncProvider);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// App vào nền thì dừng polling, quay về thì chạy lại ngay.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final repo = ref.read(deviceRepositoryProvider);
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.detached:
+        repo.pause();
+      case AppLifecycleState.resumed:
+        repo.resume();
+      case AppLifecycleState.inactive:
+        break; // ví dụ kéo thanh thông báo: chưa coi là vào nền
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     // Giữ bộ đệm biểu đồ luôn chạy kể cả khi đang ở tab khác
     // (listen không làm shell rebuild).
     ref.listen(liveBufferProvider, (_, _) {});
+    final index = ref.watch(selectedTabProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -31,10 +67,11 @@ class _AppShellState extends ConsumerState<AppShell> {
           children: [
             const _Header(),
             const Divider(),
+            const _IssueBanner(),
             const _DisconnectedBanner(),
             Expanded(
               child: IndexedStack(
-                index: _index,
+                index: index,
                 children: const [
                   LiveScreen(),
                   HistoryScreen(),
@@ -52,8 +89,12 @@ class _AppShellState extends ConsumerState<AppShell> {
           ),
         ),
         child: NavigationBar(
-          selectedIndex: _index,
-          onDestinationSelected: (i) => setState(() => _index = i),
+          selectedIndex: index,
+          onDestinationSelected: (i) {
+            // Vào tab Lịch sử thì tải lại để thấy dữ liệu mới nhất.
+            if (i == 1) ref.invalidate(historyDataProvider);
+            ref.read(selectedTabProvider.notifier).select(i);
+          },
           destinations: const [
             NavigationDestination(
               icon: Icon(Icons.show_chart),
@@ -156,13 +197,48 @@ class _ConnectionChip extends ConsumerWidget {
   }
 }
 
+/// Lỗi cấu hình/xác thực (token sai, chưa cấu hình...) kèm nút tới Cài đặt.
+class _IssueBanner extends ConsumerWidget {
+  const _IssueBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final message = ref.watch(issueProvider.select((a) => a.value?.message));
+    if (message == null) return const SizedBox.shrink();
+    final danger = context.palette.danger;
+    return Container(
+      width: double.infinity,
+      color: danger.withValues(alpha: 0.15),
+      padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, size: 18, color: danger),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(message, style: TextStyle(color: danger)),
+          ),
+          TextButton(
+            onPressed: () => ref.read(selectedTabProvider.notifier).select(2),
+            child: const Text('Mở Cài đặt'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DisconnectedBanner extends ConsumerWidget {
   const _DisconnectedBanner();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final offline = ref.watch(connectionStateProvider) == false;
-    if (!offline) return const SizedBox.shrink();
+    final hasIssue = ref.watch(
+      issueProvider.select(
+        (a) => (a.value ?? DeviceIssue.none) != DeviceIssue.none,
+      ),
+    );
+    if (!offline || hasIssue) return const SizedBox.shrink();
     final danger = context.palette.danger;
     return Container(
       width: double.infinity,

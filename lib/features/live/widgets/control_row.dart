@@ -114,6 +114,7 @@ class EmergencyStopCard extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     // Động cơ đã dừng thì không còn gì để dừng: khóa nút.
     final canStop = connected && !busy && running;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),

@@ -90,7 +90,6 @@ void main() {
   });
 }
 
-
 void motorOffTests() {
   const t = Thresholds();
   group('động cơ tắt có chủ ý', () {
