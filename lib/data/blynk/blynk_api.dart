@@ -110,6 +110,11 @@ class BlynkApi {
     final code = res.statusCode ?? 0;
     final body = res.data ?? '';
     if (code >= 200 && code < 300) return body;
+    // Hết hạn mức tin nhắn của gói Blynk ("Messages limit reached!"): không phải
+    // lỗi token hay pin, và sẽ tự hết khi hạn mức được làm mới.
+    if (body.toLowerCase().contains('limit')) {
+      throw BlynkException(BlynkErrorKind.rateLimited, code);
+    }
     if (code == 401 || code == 403) {
       throw BlynkException(BlynkErrorKind.invalidToken, code);
     }

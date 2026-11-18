@@ -117,7 +117,9 @@ class BlynkRepository implements DeviceRepository {
       await api.update(values);
       return true;
     } on BlynkException catch (e) {
-      _handleFatal(e);
+      if (!_handleFatal(e) && e.kind == BlynkErrorKind.rateLimited) {
+        _setIssue(DeviceIssue.quotaExceeded);
+      }
       return false;
     }
   }
@@ -191,7 +193,13 @@ class BlynkRepository implements DeviceRepository {
       _setConnected(true);
       if (!_telemetry.isClosed) _telemetry.add(data);
     } on BlynkException catch (e) {
-      if (!_handleFatal(e)) _onMissed();
+      if (!_handleFatal(e)) {
+        // Hết hạn mức: báo rõ nguyên nhân; vẫn thử lại (giãn dần tới 60 giây).
+        if (e.kind == BlynkErrorKind.rateLimited) {
+          _setIssue(DeviceIssue.quotaExceeded);
+        }
+        _onMissed();
+      }
     } on BlynkParseException {
       _onMissed();
     } finally {

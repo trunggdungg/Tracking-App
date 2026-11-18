@@ -111,6 +111,16 @@ void main() {
         await kindFor(const FakeReply(429, '')),
         BlynkErrorKind.rateLimited,
       );
+      // Hết hạn mức tin nhắn: dù mã trạng thái nào cũng KHÔNG phải lỗi token/pin.
+      for (final code in [400, 403, 429]) {
+        expect(
+          await kindFor(
+            FakeReply(code, '{"error":{"message":"Messages limit reached!"}}'),
+          ),
+          BlynkErrorKind.rateLimited,
+          reason: 'mã $code',
+        );
+      }
       expect(await kindFor(const FakeReply(503, '')), BlynkErrorKind.server);
       expect(
         await kindFor(const FakeReply(404, '')),

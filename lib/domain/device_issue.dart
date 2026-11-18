@@ -10,4 +10,7 @@ enum DeviceIssue {
 
   /// Máy chủ báo pin không tồn tại: ánh xạ pin có thể sai.
   invalidPins,
+
+  /// Blynk báo đã hết hạn mức tin nhắn. Không cần sửa cài đặt, chờ hạn mức làm mới.
+  quotaExceeded,
 }

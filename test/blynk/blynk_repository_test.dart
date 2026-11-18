@@ -232,6 +232,42 @@ void main() {
       expect(h.adapter.requests, isEmpty);
     });
 
+    test(
+      'hết hạn mức tin nhắn: báo quotaExceeded, KHÔNG dừng polling',
+      () async {
+        var limited = true;
+        final h = Harness(
+          (u) => limited
+              ? const FakeReply(
+                  400,
+                  '{"error":{"message":"Messages limit reached!"}}',
+                )
+              : serverOk(u),
+        );
+        addTearDown(h.dispose);
+        final issues = await issuesOf(h);
+        expect(issues.last, DeviceIssue.quotaExceeded);
+
+        // Hạn mức làm mới: app tự hồi phục, không cần khởi động lại.
+        limited = false;
+        await wait(1600); // chờ qua khoảng giãn (backoff)
+        expect(issues.last, DeviceIssue.none);
+      },
+    );
+
+    test('gửi lệnh khi hết hạn mức: false và báo quotaExceeded', () async {
+      final h = Harness((_) => const FakeReply(400, 'Messages limit reached!'));
+      addTearDown(h.dispose);
+      final issues = <DeviceIssue>[];
+      h.repo.issueStream().listen(issues.add);
+      expect(
+        await h.repo.sendCommand(const DeviceCommand.motorEnable(true)),
+        isFalse,
+      );
+      await wait(20);
+      expect(issues.last, DeviceIssue.quotaExceeded);
+    });
+
     test('hoạt động bình thường thì issue là none', () async {
       final h = Harness(serverOk);
       addTearDown(h.dispose);

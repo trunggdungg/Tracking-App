@@ -203,8 +203,11 @@ class _IssueBanner extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final message = ref.watch(issueProvider.select((a) => a.value?.message));
+    final issue = ref.watch(issueProvider.select((a) => a.value));
+    final message = issue?.message;
     if (message == null) return const SizedBox.shrink();
+    // Hết hạn mức thì sửa Cài đặt cũng không giúp được gì: không hiện nút.
+    final fixableInSettings = issue != DeviceIssue.quotaExceeded;
     final danger = context.palette.danger;
     return Container(
       width: double.infinity,
@@ -217,10 +220,11 @@ class _IssueBanner extends ConsumerWidget {
           Expanded(
             child: Text(message, style: TextStyle(color: danger)),
           ),
-          TextButton(
-            onPressed: () => ref.read(selectedTabProvider.notifier).select(2),
-            child: const Text('Mở Cài đặt'),
-          ),
+          if (fixableInSettings)
+            TextButton(
+              onPressed: () => ref.read(selectedTabProvider.notifier).select(2),
+              child: const Text('Mở Cài đặt'),
+            ),
         ],
       ),
     );

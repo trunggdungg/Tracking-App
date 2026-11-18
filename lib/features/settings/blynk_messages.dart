@@ -6,7 +6,8 @@ extension BlynkErrorMessage on BlynkErrorKind {
     BlynkErrorKind.invalidToken => 'Token không hợp lệ hoặc đã bị thu hồi.',
     BlynkErrorKind.invalidPin =>
       'Pin không tồn tại trên thiết bị. Kiểm tra lại ánh xạ pin.',
-    BlynkErrorKind.rateLimited => 'Bị giới hạn tần suất, hãy thử lại sau.',
+    BlynkErrorKind.rateLimited =>
+      'Blynk báo đã hết hạn mức tin nhắn. Dữ liệu sẽ có lại khi hạn mức làm mới.',
     BlynkErrorKind.server => 'Máy chủ Blynk đang lỗi, hãy thử lại sau.',
     BlynkErrorKind.timeout => 'Hết thời gian chờ phản hồi.',
     BlynkErrorKind.network =>
@@ -23,5 +24,8 @@ extension DeviceIssueMessage on DeviceIssue {
     DeviceIssue.invalidToken => 'Token không hợp lệ hoặc đã bị thu hồi.',
     DeviceIssue.invalidPins =>
       'Blynk báo pin không tồn tại. Kiểm tra lại ánh xạ pin.',
+    DeviceIssue.quotaExceeded =>
+      'Blynk đã hết hạn mức tin nhắn nên tạm không gửi/nhận được dữ liệu. '
+          'Hãy chờ hạn mức làm mới hoặc nâng cấp gói.',
   };
 }
