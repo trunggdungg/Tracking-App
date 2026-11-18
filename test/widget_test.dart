@@ -1,30 +1,39 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-
+import 'package:tracking_app/app/providers.dart';
+import 'package:tracking_app/data/repositories/mock_repository.dart';
 import 'package:tracking_app/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('màn hình Trực tiếp hiển thị dữ liệu giả', (tester) async {
+    final repo = MockRepository(
+      interval: const Duration(milliseconds: 100),
+      commandDelay: Duration.zero,
+      failureRate: 0,
+      simulateDropouts: false,
+      random: Random(7),
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [deviceRepositoryProvider.overrideWithValue(repo)],
+        child: const MotorMonitorApp(),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 250));
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    expect(find.text('Giám sát động cơ'), findsOneWidget);
+    expect(find.text('Đã kết nối'), findsOneWidget);
+    expect(find.text('vòng/phút'), findsOneWidget);
+    expect(find.text('Tốc độ ổn định'), findsOneWidget);
+    expect(find.text('Động cơ'), findsOneWidget);
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Gỡ widget để dừng các timer trước khi test kết thúc.
+    await tester.pumpWidget(const SizedBox.shrink());
+    unawaited(repo.dispose()); // hủy timer ngay (phần đồng bộ của dispose)
   });
 }
