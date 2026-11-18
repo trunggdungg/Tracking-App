@@ -6,5 +6,5 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      const Center(child: Text('Cài đặt - sẽ làm ở bước 3'));
+      const Center(child: Text('Cài đặt - Coming soon'));
 }
