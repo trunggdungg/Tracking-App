@@ -17,6 +17,7 @@ TelemetryData sample({
 );
 
 void main() {
+  motorOffTests();
   const t = Thresholds(); // rpm 800..1800, nhiệt độ 60/80, rung 7
   const eval = WarningEvaluator.level;
 
@@ -84,6 +85,49 @@ void main() {
       expect(
         WarningEvaluator.apply(sample(temp: 65), t).warningLevel,
         WarningLevel.warn,
+      );
+    });
+  });
+}
+
+
+void motorOffTests() {
+  const t = Thresholds();
+  group('động cơ tắt có chủ ý', () {
+    test('rpm còn đang giảm dần vẫn là "đã dừng", không cảnh báo thấp', () {
+      expect(
+        WarningEvaluator.speed(90, t, motorRunning: false),
+        SpeedStatus.stopped,
+      );
+      expect(
+        WarningEvaluator.level(sample(rpm: 90), t, motorRunning: false),
+        WarningLevel.ok,
+      );
+    });
+
+    test('mặc định (động cơ chạy) vẫn cảnh báo tốc độ thấp', () {
+      expect(WarningEvaluator.level(sample(rpm: 90), t), WarningLevel.warn);
+    });
+
+    test('vẫn cảnh báo nhiệt độ khi động cơ tắt (đang nguội)', () {
+      expect(
+        WarningEvaluator.level(
+          sample(rpm: 0, temp: 85),
+          t,
+          motorRunning: false,
+        ),
+        WarningLevel.danger,
+      );
+    });
+
+    test('apply truyền motorRunning xuống', () {
+      expect(
+        WarningEvaluator.apply(
+          sample(rpm: 90),
+          t,
+          motorRunning: false,
+        ).warningLevel,
+        WarningLevel.ok,
       );
     });
   });

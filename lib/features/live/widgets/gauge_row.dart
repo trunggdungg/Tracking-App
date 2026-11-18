@@ -65,6 +65,7 @@ class SpeedGaugeCard extends ConsumerWidget {
     final rpm = ref.watch(latestTelemetryProvider.select((t) => t?.rpm));
     final t = ref.watch(thresholdsProvider);
     final connected = ref.watch(isConnectedProvider);
+    final motorOn = ref.watch(motorControllerProvider.select((s) => s.enabled));
     final p = context.palette;
     final track = Theme.of(context).colorScheme.outlineVariant;
 
@@ -83,7 +84,7 @@ class SpeedGaugeCard extends ConsumerWidget {
       );
     }
 
-    final status = WarningEvaluator.speed(rpm, t);
+    final status = WarningEvaluator.speed(rpm, t, motorRunning: motorOn);
     final active = connected;
     final arcColor = !active
         ? p.muted

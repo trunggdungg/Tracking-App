@@ -50,7 +50,12 @@ final telemetryProvider = StreamProvider<TelemetryData>((ref) {
   final repo = ref.watch(deviceRepositoryProvider);
   return repo.telemetryStream().map(
     // ref.read: đổi ngưỡng không làm khởi động lại luồng dữ liệu.
-    (d) => WarningEvaluator.apply(d, ref.read(thresholdsProvider)),
+        (d) => WarningEvaluator.apply(
+      d,
+      ref.read(thresholdsProvider),
+      // Động cơ tắt có chủ ý thì không cảnh báo tốc độ.
+      motorRunning: ref.read(motorControllerProvider).enabled,
+    ),
   );
 });
 

@@ -66,7 +66,11 @@ class MockSimulator {
       current: max(0, current),
       healthPercent: health,
     );
-    final level = WarningEvaluator.level(data, thresholds);
+    final level = WarningEvaluator.level(
+      data,
+      thresholds,
+      motorRunning: motorEnabled,
+    );
     if (level != WarningLevel.danger) buzzerMuted = false;
     data = TelemetryData(
       timestamp: now,

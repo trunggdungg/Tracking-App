@@ -107,10 +107,13 @@ class EmergencyStopCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final busy = ref.watch(motorControllerProvider.select((s) => s.busy));
+    final (busy, running) = ref.watch(
+      motorControllerProvider.select((s) => (s.busy, s.enabled)),
+    );
     final connected = ref.watch(isConnectedProvider);
     final scheme = Theme.of(context).colorScheme;
-
+    // Động cơ đã dừng thì không còn gì để dừng: khóa nút.
+    final canStop = connected && !busy && running;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -133,11 +136,16 @@ class EmergencyStopCard extends ConsumerWidget {
                     horizontal: 8,
                   ),
                 ),
-                onPressed: connected && !busy
-                    ? () => _onPressed(context, ref)
-                    : null,
-                icon: const Icon(Icons.stop_circle_outlined),
-                label: const Text('Dừng động cơ', textAlign: TextAlign.center),
+                onPressed: canStop ? () => _onPressed(context, ref) : null,
+                icon: Icon(
+                  running
+                      ? Icons.stop_circle_outlined
+                      : Icons.check_circle_outline,
+                ),
+                label: Text(
+                  running ? 'Dừng động cơ' : 'Đã dừng',
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
           ],
