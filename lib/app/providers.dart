@@ -3,9 +3,12 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/constants.dart';
+import '../data/local/app_database.dart';
+import '../data/local/drift_history_store.dart';
 import '../data/repositories/mock_repository.dart';
 import '../domain/device_command.dart';
 import '../domain/device_repository.dart';
+import '../domain/history_store.dart';
 import '../domain/telemetry_data.dart';
 import '../domain/thresholds.dart';
 import '../domain/warning_evaluator.dart';
@@ -23,12 +26,22 @@ final useMockProvider = NotifierProvider<UseMockNotifier, bool>(
   UseMockNotifier.new,
 );
 
+/// Kho lịch sử cục bộ (SQLite). Test/preview có thể override bằng MemoryHistoryStore.
+final historyStoreProvider = Provider<HistoryStore>((ref) {
+  final store = DriftHistoryStore(AppDatabase());
+  ref.onDispose(store.close);
+  return store;
+});
+
 /// ĐIỂM CHUYỂN REPOSITORY DUY NHẤT của app.
 /// Thêm MqttRepository sau này chỉ cần thêm một nhánh ở đây.
 final deviceRepositoryProvider = Provider<DeviceRepository>((ref) {
   final useMock = ref.watch(useMockProvider);
   // TODO(bước 3): useMock ? MockRepository() : BlynkRepository(...)
-  final DeviceRepository repo = useMock ? MockRepository() : MockRepository();
+  final store = ref.watch(historyStoreProvider);
+  final DeviceRepository repo = useMock
+      ? MockRepository(store: store)
+      : MockRepository(store: store);
   ref.onDispose(repo.dispose);
   return repo;
 });

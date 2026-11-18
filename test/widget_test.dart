@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tracking_app/app/providers.dart';
+import 'package:tracking_app/data/local/memory_history_store.dart';
 import 'package:tracking_app/data/repositories/mock_repository.dart';
 import 'package:tracking_app/main.dart';
 
@@ -20,7 +21,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [deviceRepositoryProvider.overrideWithValue(repo)],
+        overrides: [
+          deviceRepositoryProvider.overrideWithValue(repo),
+          historyStoreProvider.overrideWithValue(MemoryHistoryStore()),
+        ],
         child: const MotorMonitorApp(),
       ),
     );

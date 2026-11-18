@@ -16,7 +16,13 @@ abstract class DeviceRepository {
   Future<bool> sendCommand(DeviceCommand cmd);
 
   /// Lịch sử mẫu đo trong khoảng [from, to], sắp xếp tăng dần theo thời gian.
-  Future<List<TelemetryData>> history(DateTime from, DateTime to);
+  /// [maxPoints]: nếu có, giảm mẫu về tối đa ngần ấy điểm (để vẽ biểu đồ);
+  /// để null khi cần dữ liệu thô (ví dụ xuất CSV).
+  Future<List<TelemetryData>> history(
+    DateTime from,
+    DateTime to, {
+    int? maxPoints,
+  });
 
   /// Giải phóng timer/stream. (Bổ sung so với interface gốc để tránh rò rỉ.)
   Future<void> dispose();

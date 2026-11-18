@@ -5,6 +5,8 @@ import '../core/theme.dart';
 import '../features/history/history_screen.dart';
 import '../features/live/live_screen.dart';
 import '../features/settings/settings_screen.dart';
+import '../features/history/history_providers.dart';
+import 'history_recorder.dart';
 import 'providers.dart';
 
 /// Khung ứng dụng: thanh trên (tiêu đề + trạng thái kết nối),
@@ -18,6 +20,13 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell> {
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Bật bộ ghi lịch sử chạy ngầm suốt vòng đời app.
+    ref.read(historyRecorderProvider);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +62,11 @@ class _AppShellState extends ConsumerState<AppShell> {
         ),
         child: NavigationBar(
           selectedIndex: _index,
-          onDestinationSelected: (i) => setState(() => _index = i),
+          onDestinationSelected: (i) {
+            // Vào tab Lịch sử thì tải lại để thấy dữ liệu mới nhất.
+            if (i == 1) ref.invalidate(historyDataProvider);
+            setState(() => _index = i);
+          },
           destinations: const [
             NavigationDestination(
               icon: Icon(Icons.show_chart),

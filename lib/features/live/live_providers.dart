@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/providers.dart';
 import '../../core/constants.dart';
-import '../../core/utils/downsample.dart';
 import '../../domain/telemetry_data.dart';
 
 enum ChartRange {
@@ -29,14 +28,12 @@ final chartRangeProvider = NotifierProvider<ChartRangeNotifier, ChartRange>(
   ChartRangeNotifier.new,
 );
 
-/// Dữ liệu cho các khoảng 1 giờ / 1 ngày / 7 ngày: đọc từ repository
-/// (SQLite ở bước 2) rồi tự giảm mẫu nếu quá nhiều điểm.
+/// Dữ liệu cho các khoảng 1 giờ / 1 ngày / 7 ngày: đọc từ repository (SQLite).
+/// Việc giảm mẫu làm ngay trong SQL nên không nạp hết dòng vào bộ nhớ.
 final rangeHistoryProvider = FutureProvider.autoDispose
     .family<List<TelemetryData>, ChartRange>((ref, range) async {
-      final span = range.span!;
       final now = DateTime.now();
-      final data = await ref
+      return ref
           .read(deviceRepositoryProvider)
-          .history(now.subtract(span), now);
-      return downsample(data, kMaxChartPoints);
+          .history(now.subtract(range.span!), now, maxPoints: kMaxChartPoints);
     });
