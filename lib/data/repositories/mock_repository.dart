@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import '../../core/utils/downsample.dart';
 import '../../domain/device_command.dart';
+import '../../domain/device_issue.dart';
 import '../../domain/device_repository.dart';
 import '../../domain/history_store.dart';
 import '../../domain/telemetry_data.dart';
@@ -84,6 +87,7 @@ class MockSimulator {
       fault: level == WarningLevel.danger ? 'Quá nhiệt' : null,
       warningLevel: level,
       buzzerOn: level == WarningLevel.danger && !buzzerMuted,
+      motorOn: motorEnabled,
     );
     return data;
   }
@@ -117,6 +121,10 @@ class MockRepository implements DeviceRepository {
 
   final Random _random;
   final MockSimulator _sim;
+
+  /// Bộ mô phỏng bên trong - chỉ để test can thiệp trạng thái thiết bị.
+  @visibleForTesting
+  MockSimulator get sim => _sim;
   final _telemetry = StreamController<TelemetryData>.broadcast();
   final _connection = StreamController<bool>.broadcast();
   final _history = <TelemetryData>[];
@@ -129,6 +137,7 @@ class MockRepository implements DeviceRepository {
   static const _maxHistory = 20000;
 
   void _start() {
+    _started = true;
     _timer ??= Timer.periodic(interval, (_) => _tick());
     _tick();
   }
@@ -172,6 +181,22 @@ class MockRepository implements DeviceRepository {
   Stream<bool> connectionStream() async* {
     yield _connected;
     yield* _connection.stream;
+  }
+
+  @override
+  Stream<DeviceIssue> issueStream() => Stream.value(DeviceIssue.none);
+
+  bool _started = false;
+
+  @override
+  void pause() {
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  @override
+  void resume() {
+    if (_started && _timer == null && !_telemetry.isClosed) _start();
   }
 
   @override

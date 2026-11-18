@@ -80,6 +80,8 @@ ThemeData buildTheme(Brightness brightness) {
           onSurfaceVariant: Color(0xFFA8A8A8),
           outline: Color(0xFF3A3A3A),
           outlineVariant: Color(0xFF4A4A4A),
+          secondaryContainer: Color(0xFF1F3A5F),
+          onSecondaryContainer: Color(0xFFBBD7FA),
           error: Color(0xFFD13D3D),
         )
       : const ColorScheme.light(
@@ -89,6 +91,8 @@ ThemeData buildTheme(Brightness brightness) {
           onSurfaceVariant: Color(0xFF5F5F5F),
           outline: Color(0xFFD0D0CC),
           outlineVariant: Color(0xFFC4C4C0),
+          secondaryContainer: Color(0xFFD6E4F8),
+          onSecondaryContainer: Color(0xFF0B3A7A),
           error: Color(0xFFC62828),
         );
 

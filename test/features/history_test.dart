@@ -1,16 +1,15 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tracking_app/app/providers.dart';
 import 'package:tracking_app/data/local/memory_history_store.dart';
-import 'package:tracking_app/data/repositories/mock_repository.dart';
 import 'package:tracking_app/domain/alert_event.dart';
 import 'package:tracking_app/domain/telemetry_data.dart';
 import 'package:tracking_app/features/history/history_providers.dart';
 import 'package:tracking_app/main.dart';
+
+import '../support/test_app.dart';
 
 void main() {
   group('resolveRange', () {
@@ -66,20 +65,14 @@ void main() {
       ),
     );
 
-    final repo = MockRepository(
+    final repo = TestRepository(
       store: store,
       interval: const Duration(seconds: 30), // không sinh thêm mẫu trong test
-      commandDelay: Duration.zero,
-      simulateDropouts: false,
-      random: Random(1),
     );
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          deviceRepositoryProvider.overrideWithValue(repo),
-          historyStoreProvider.overrideWithValue(store),
-        ],
+        overrides: await baseOverrides(store: store, repo: repo),
         child: const MotorMonitorApp(),
       ),
     );

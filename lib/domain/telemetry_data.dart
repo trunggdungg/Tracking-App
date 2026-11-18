@@ -21,6 +21,7 @@ class TelemetryData {
     this.fault,
     this.warningLevel = WarningLevel.ok,
     this.buzzerOn = false,
+    this.motorOn,
   });
 
   final DateTime timestamp;
@@ -46,6 +47,9 @@ class TelemetryData {
   final WarningLevel warningLevel;
   final bool buzzerOn;
 
+  /// Trạng thái bật/tắt động cơ do thiết bị báo (null = thiết bị không báo).
+  final bool? motorOn;
+
   TelemetryData copyWith({WarningLevel? warningLevel, bool? buzzerOn}) =>
       TelemetryData(
         timestamp: timestamp,
@@ -57,6 +61,7 @@ class TelemetryData {
         fault: fault,
         warningLevel: warningLevel ?? this.warningLevel,
         buzzerOn: buzzerOn ?? this.buzzerOn,
+        motorOn: motorOn,
       );
 
   @override

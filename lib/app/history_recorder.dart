@@ -57,18 +57,6 @@ class HistoryRecorder {
   }
 }
 
-/// Số ngày giữ lịch sử. (Bước 3: lưu shared_preferences + chỉnh trong Cài đặt.)
-class RetentionDaysNotifier extends Notifier<int> {
-  @override
-  int build() => 30;
-
-  void set(int days) => state = days;
-}
-
-final retentionDaysProvider = NotifierProvider<RetentionDaysNotifier, int>(
-  RetentionDaysNotifier.new,
-);
-
 /// Chạy ngầm suốt vòng đời app: ghi lịch sử + ghi cảnh báo + tự dọn dữ liệu cũ.
 /// Được kích hoạt một lần từ AppShell.
 final historyRecorderProvider = Provider<HistoryRecorder>((ref) {
@@ -81,7 +69,7 @@ final historyRecorderProvider = Provider<HistoryRecorder>((ref) {
     final alert = recorder.detector.onSample(
       d,
       ref.read(thresholdsProvider),
-      motorRunning: ref.read(motorControllerProvider).enabled,
+      motorRunning: isMotorRunning(ref, d),
     );
     recorder.onSample(d, alert);
   });

@@ -5,26 +5,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/constants.dart';
 import '../data/local/app_database.dart';
 import '../data/local/drift_history_store.dart';
+import '../data/blynk/blynk_config.dart';
+import '../data/repositories/blynk_repository.dart';
 import '../data/repositories/mock_repository.dart';
 import '../domain/device_command.dart';
+import '../domain/device_issue.dart';
 import '../domain/device_repository.dart';
 import '../domain/history_store.dart';
 import '../domain/telemetry_data.dart';
-import '../domain/thresholds.dart';
 import '../domain/warning_evaluator.dart';
+import 'settings_providers.dart';
 
-/// Cờ chọn repository: true = Mock. (Bước 3: lưu vào shared_preferences
-/// và cho đổi trong Cài đặt.)
-class UseMockNotifier extends Notifier<bool> {
-  @override
-  bool build() => kDefaultUseMock;
-
-  void set(bool value) => state = value;
-}
-
-final useMockProvider = NotifierProvider<UseMockNotifier, bool>(
-  UseMockNotifier.new,
-);
+// Các provider cài đặt cũng được truy cập qua file này cho gọn.
+export 'settings_providers.dart';
 
 /// Kho lịch sử cục bộ (SQLite). Test/preview có thể override bằng MemoryHistoryStore.
 final historyStoreProvider = Provider<HistoryStore>((ref) {
@@ -34,29 +27,42 @@ final historyStoreProvider = Provider<HistoryStore>((ref) {
 });
 
 /// ĐIỂM CHUYỂN REPOSITORY DUY NHẤT của app.
-/// Thêm MqttRepository sau này chỉ cần thêm một nhánh ở đây.
+/// Thêm MqttRepository sau này chỉ cần thêm một nhánh ở đây, không sửa UI.
+///
+/// Đổi nguồn dữ liệu, host, chu kỳ hay ánh xạ pin trong Cài đặt thì repository
+/// được dựng lại (cái cũ tự dispose). Đổi ngưỡng/số ngày lưu thì KHÔNG dựng lại.
 final deviceRepositoryProvider = Provider<DeviceRepository>((ref) {
-  final useMock = ref.watch(useMockProvider);
-  // TODO(bước 3): useMock ? MockRepository() : BlynkRepository(...)
+  final (useMock, host, pollSeconds, pinMap) = ref.watch(
+    settingsProvider.select(
+      (s) => (s.useMock, s.host, s.pollSeconds, s.pinMap),
+    ),
+  );
   final store = ref.watch(historyStoreProvider);
+
   final DeviceRepository repo = useMock
       ? MockRepository(store: store)
-      : MockRepository(store: store);
+      : BlynkRepository(
+          config: BlynkConfig(
+            host: normalizeHost(host),
+            // Chỉ theo dõi token khi dùng Blynk thật.
+            token: ref.watch(tokenProvider),
+            pollInterval: Duration(seconds: pollSeconds),
+            pinMap: pinMap,
+          ),
+          store: store,
+        );
   ref.onDispose(repo.dispose);
   return repo;
 });
 
-/// Ngưỡng cảnh báo. (Bước 3: lưu/đọc shared_preferences + màn hình Cài đặt.)
-class ThresholdsNotifier extends Notifier<Thresholds> {
-  @override
-  Thresholds build() => const Thresholds();
-
-  void update(Thresholds value) => state = value;
-}
-
-final thresholdsProvider = NotifierProvider<ThresholdsNotifier, Thresholds>(
-  ThresholdsNotifier.new,
+final issueProvider = StreamProvider<DeviceIssue>(
+  (ref) => ref.watch(deviceRepositoryProvider).issueStream(),
 );
+
+/// Động cơ đang chạy? Ưu tiên trạng thái do thiết bị báo, không có thì dùng
+/// trạng thái công tắc trong app.
+bool isMotorRunning(Ref ref, TelemetryData d) =>
+    d.motorOn ?? ref.read(motorControllerProvider).enabled;
 
 /// Mẫu đo đã được tính lại mức cảnh báo bằng ngưỡng hiện tại.
 final telemetryProvider = StreamProvider<TelemetryData>((ref) {
@@ -124,9 +130,21 @@ class MotorState {
 }
 
 class MotorController extends Notifier<MotorState> {
-  // TODO(bước 3): đồng bộ trạng thái ban đầu từ thiết bị (pin motorSwitch).
   @override
-  MotorState build() => const MotorState(enabled: true);
+  MotorState build() {
+    // Đổi nguồn dữ liệu thì trạng thái công tắc được khởi tạo lại.
+    // LƯU Ý: provider này KHÔNG được phụ thuộc telemetryProvider (telemetryProvider
+    // đọc trạng thái động cơ để tính cảnh báo -> sẽ thành vòng phụ thuộc).
+    // Việc đồng bộ từ thiết bị nằm ở motorSyncProvider.
+    ref.watch(deviceRepositoryProvider);
+    return const MotorState(enabled: true);
+  }
+
+  /// Đồng bộ công tắc theo trạng thái thật do thiết bị báo.
+  /// Bỏ qua khi đang gửi lệnh để không giật công tắc.
+  void syncFromDevice(bool on) {
+    if (!state.busy && on != state.enabled) state = MotorState(enabled: on);
+  }
 
   DeviceRepository get _repo => ref.read(deviceRepositoryProvider);
 
@@ -154,3 +172,27 @@ class MotorController extends Notifier<MotorState> {
 final motorControllerProvider = NotifierProvider<MotorController, MotorState>(
   MotorController.new,
 );
+
+/// Tab đang mở (0 Trực tiếp, 1 Lịch sử, 2 Cài đặt). Là provider để banner
+/// lỗi có thể đưa người dùng tới Cài đặt.
+class SelectedTabNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void select(int index) => state = index;
+}
+
+final selectedTabProvider = NotifierProvider<SelectedTabNotifier, int>(
+  SelectedTabNotifier.new,
+);
+
+/// Giữ công tắc động cơ khớp với trạng thái do thiết bị báo (nếu thiết bị có báo).
+/// Được kích hoạt một lần từ AppShell.
+final motorSyncProvider = Provider<void>((ref) {
+  ref.listen(telemetryProvider, (_, next) {
+    final on = next.value?.motorOn;
+    if (on != null) {
+      ref.read(motorControllerProvider.notifier).syncFromDevice(on);
+    }
+  });
+});

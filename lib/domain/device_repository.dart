@@ -1,4 +1,5 @@
 import 'device_command.dart';
+import 'device_issue.dart';
 import 'telemetry_data.dart';
 
 /// Giao diện duy nhất mà UI được phép dùng để nói chuyện với thiết bị.
@@ -11,6 +12,14 @@ abstract class DeviceRepository {
 
   /// Luồng trạng thái kết nối tới thiết bị (true = đang online).
   Stream<bool> connectionStream();
+
+  /// Vấn đề cấu hình/xác thực đang xảy ra (token sai, chưa cấu hình...).
+  /// `DeviceIssue.none` khi mọi thứ bình thường.
+  Stream<DeviceIssue> issueStream();
+
+  /// Tạm dừng / chạy lại việc lấy dữ liệu (app vào nền / quay về).
+  void pause();
+  void resume();
 
   /// Gửi lệnh; trả về true nếu thiết bị/cloud xác nhận thành công.
   Future<bool> sendCommand(DeviceCommand cmd);
